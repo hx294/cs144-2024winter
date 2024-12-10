@@ -1,4 +1,4 @@
-#include "../util/socket.hh"
+#include "socket.hh"
 
 #include <cstdlib>
 #include <iostream>
@@ -18,8 +18,10 @@ void get_URL( const string& host, const string& path )
   + " HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n"};
   ts.write(mes);
   string rep;
-  ts.read(rep);
-  cout << rep << endl;
+  while(!ts.eof()){
+    ts.read(rep);
+    cout << rep;
+  }
 }
 
 int main( int argc, char* argv[] )
