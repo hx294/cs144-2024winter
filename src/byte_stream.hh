@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
-#include <deque>
+#include <vector>
 
 class Reader;
 class Writer;
@@ -27,7 +27,7 @@ protected:
   uint64_t capacity_;
   bool error_ {};
   bool closed = false;
-  deque<char> mem;
+  std::vector<char> mem;
   uint64_t pushed_cnt;
   uint64_t poped_cnt;
 };

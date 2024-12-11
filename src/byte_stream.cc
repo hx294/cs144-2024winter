@@ -2,7 +2,7 @@
 
 using namespace std;
 
-ByteStream::ByteStream( uint64_t capacity ) : capacity_( capacity ) {}
+ByteStream::ByteStream( uint64_t capacity ) : capacity_( capacity ),mem( capacity ),pushed_cnt{0},poped_cnt{0} {}
 
 bool Writer::is_closed() const
 {
@@ -14,9 +14,8 @@ void Writer::push( string data )
 {
   // Your code here.
   for(auto &c: data)
-    if(mem.size() <= capacity_){
-      mem.push_back(c);
-      pushed_cnt++;
+    if((pushed_cnt - poped_cnt) < capacity_){
+      mem[(pushed_cnt++)%capacity_] = c;
     }else {
       break;
     }
@@ -31,7 +30,7 @@ void Writer::close()
 uint64_t Writer::available_capacity() const
 {
   // Your code here.
-  return capacity_- mem.size();
+  return capacity_- (pushed_cnt-poped_cnt);
 }
 
 uint64_t Writer::bytes_pushed() const
@@ -43,7 +42,7 @@ uint64_t Writer::bytes_pushed() const
 bool Reader::is_finished() const
 {
   // Your code here.
-  return closed && mem.size()==0;
+  return closed && (pushed_cnt-poped_cnt) == 0;
 }
 
 uint64_t Reader::bytes_popped() const
@@ -55,16 +54,25 @@ uint64_t Reader::bytes_popped() const
 string_view Reader::peek() const
 {
   // Your code here.
-  return string_view(mem.begin(),mem.end());
+  string_view v;
+  if( (pushed_cnt-poped_cnt) > 0) {
+    uint64_t i = pushed_cnt % capacity_;
+    uint64_t j = poped_cnt % capacity_;
+    if( j < i ) {
+      v = string_view(j+mem.begin(),i+mem.begin());
+    }else{
+      v = string_view(j+mem.begin(),mem.end());
+    }
+  }
+  return v;
 }
 
 void Reader::pop( uint64_t len )
 {
   // Your code here.
   while(len--) {
-    if(mem.size() > 0){
-      poped_cnt ++;
-      mem.pop_front();
+    if((pushed_cnt-poped_cnt) > 0){
+      poped_cnt++;
     }else{
       break;
     }
@@ -74,5 +82,5 @@ void Reader::pop( uint64_t len )
 uint64_t Reader::bytes_buffered() const
 {
   // Your code here.
-  return mem.size();
+  return pushed_cnt-poped_cnt;
 }
