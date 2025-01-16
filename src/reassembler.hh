@@ -6,7 +6,7 @@ class Reassembler
 {
 public:
   // Construct Reassembler to write into given ByteStream.
-  explicit Reassembler( ByteStream&& output ) : output_( std::move( output ) ) {}
+  explicit Reassembler( ByteStream&& output ) : output_( std::move( output ) ) , expect_index( 0 ) {}
 
   /*
    * Insert a new substring to be reassembled into a ByteStream.
@@ -41,5 +41,9 @@ public:
   const Writer& writer() const { return output_.writer(); }
 
 private:
+  // Delete redundancy in assembler before wirte to ByteStream
+  void delete_redundancy(uint64_t begin, uint64_t end);
+
   ByteStream output_; // the Reassembler writes to this ByteStream
+  uint64_t expect_index; // first unassembled index 
 };
