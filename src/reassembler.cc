@@ -7,10 +7,19 @@ typedef pair<string, pair<uint64_t, bool>>  Pair;
 
 void Reassembler::insert( uint64_t first_index, string data, bool is_last_substring )
 {
-  // Your code here.
-  (void)first_index;
-  (void)data;
-  (void)is_last_substring;
+  Writer& w = output_.writer();
+  uint64_t left = w.available_capacity();
+  if( first_index <= expect_index ) {
+    uint64_t pushed_size = min( left , data.size() - ( expect_index - first_index));
+    delete_redundancy(expect_index,expect_index + pushed_size);
+    data.erase(0,expect_index-first_index);
+    w.push(data);
+    if(is_last_substring) w.close();
+    expect_index += pushed_size;
+    check_Reassembler(expect_index, w);
+  } else {
+    add_bytes(first_index, data, is_last_substring);
+  }
 }
 
 uint64_t Reassembler::bytes_pending() const
@@ -51,8 +60,13 @@ void Reassembler::check_Reassembler( uint64_t begin , Writer& w)
     if(r->second.first == begin) {
       w.push(r->first);
       begin += r->first.size();
+      if( r->second.second ) {
+        w.close();
+        break;
+      }
     }
   }
+  expect_index = begin;
 }
 
 void Reassembler::add_bytes( uint64_t first_index, string& data, bool is_last_string ) 
