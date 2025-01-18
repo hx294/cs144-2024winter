@@ -49,7 +49,7 @@ private:
   void check_Reassembler(uint64_t begin, Writer&);
 
   // Add bytes to the space of reassembler 
-  void add_bytes( uint64_t, std::string &data, bool is_last_substring );
+  void add_bytes( uint64_t, std::string &data, bool is_last_substring ,uint64_t left);
 
   ByteStream output_; // the Reassembler writes to this ByteStream
   uint64_t expect_index; // first unassembled index 
