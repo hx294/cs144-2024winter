@@ -39,36 +39,45 @@ void Reassembler::delete_redundancy( uint64_t begin, uint64_t end )
   for( auto  r = unassembled_bytes_.begin(); r != unassembled_bytes_.end(); r ++) 
   {
     if ( r->second.first >= end || 
-    r->first.size() + r->second.first < begin ) {
+    r->first.size() + r->second.first <= begin ) {
       continue;
     } else {
-      uint64_t new_begin = max( r->second.first, begin);
-      uint64_t new_end = min(end, r->second.first + r->first.size() );
-      r->second.first = new_begin;
-      r->first = r->first.erase(0,new_begin - begin );
-      r->first.resize(end - new_end); 
-      if ( r->first.size() == 0) {
-        r = unassembled_bytes_.erase(r);
-        r--;
+      if( end < r->second.first+r->first.size())
+      {
+        Pair p{r->first,{end,r->second.second}};
+        p.first = p.first.erase(0,end - r->second.first);
+        r = unassembled_bytes_.insert(r,move(p));
+        r++;
       }
+      if( begin > r->second.first) 
+      {
+        Pair p = {r->first, {r->second.first,false}};
+        p.first = p.first.erase(begin-r->second.first, r->second.first + r->first.size()-begin);
+        unassembled_bytes_.insert(r,move(p));
+        r++;
+      }
+      r = unassembled_bytes_.erase(r);
+      r--;
     }
   }
 }
 
 void Reassembler::check_Reassembler( uint64_t begin , Writer& w) 
 {
-  for(auto r = unassembled_bytes_.begin(); r != unassembled_bytes_.end(); r ++) 
+  for(auto r = unassembled_bytes_.begin(); r != unassembled_bytes_.end(); ) 
   {
     if(r->second.first == begin) {
       w.push(r->first);
       begin += r->first.size();
       bool mark = r->second.second;
       r = unassembled_bytes_.erase(r);
-      r--;
+      r = unassembled_bytes_.begin();
       if(mark) {
         w.close();
         break;
       }
+    } else {
+      r ++;
     }
   }
   expect_index = begin;
