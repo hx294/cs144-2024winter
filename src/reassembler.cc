@@ -62,12 +62,13 @@ void Reassembler::check_Reassembler( uint64_t begin , Writer& w)
     if(r->second.first == begin) {
       w.push(r->first);
       begin += r->first.size();
-      if( r->second.second ) {
+      bool mark = r->second.second;
+      r = unassembled_bytes_.erase(r);
+      r--;
+      if(mark) {
         w.close();
         break;
       }
-      r = unassembled_bytes_.erase(r);
-      r--;
     }
   }
   expect_index = begin;
@@ -82,6 +83,7 @@ void Reassembler::add_bytes( uint64_t first_index, string& data, bool is_last_st
   end = min(end,left + expect_index);
   if(end > begin)
   {
+    if(end - begin < data.size()) is_last_string = false;
     data.resize(end - begin);
     delete_redundancy(begin,end);
     unassembled_bytes_.push_back({move(data),{first_index,is_last_string}});
