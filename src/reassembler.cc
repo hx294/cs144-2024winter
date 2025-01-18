@@ -48,7 +48,8 @@ void Reassembler::delete_redundancy( uint64_t begin, uint64_t end )
       r->first = r->first.erase(0,new_begin - begin );
       r->first.resize(end - new_end); 
       if ( r->first.size() == 0) {
-        unassembled_bytes_.erase(r);
+        r = unassembled_bytes_.erase(r);
+        r--;
       }
     }
   }
@@ -65,6 +66,8 @@ void Reassembler::check_Reassembler( uint64_t begin , Writer& w)
         w.close();
         break;
       }
+      r = unassembled_bytes_.erase(r);
+      r--;
     }
   }
   expect_index = begin;
