@@ -6,7 +6,7 @@ class Reassembler
 {
 public:
   // Construct Reassembler to write into given ByteStream.
-  explicit Reassembler( ByteStream&& output ) : output_( std::move( output ) ) , expect_index( 0 ) , unassembled_bytes_(0){}
+  explicit Reassembler( ByteStream&& output ) : output_( std::move( output ) ) {}
 
   /*
    * Insert a new substring to be reassembled into a ByteStream.
@@ -41,17 +41,18 @@ public:
   const Writer& writer() const { return output_.writer(); }
 
 private:
-  // Delete redundancy in assembler before wirte to ByteStream. 
+  // Delete redundancy in assembler before wirte to ByteStream.
   // Bytes' index >= begin && < end are reserved.
-  void delete_redundancy(uint64_t begin, uint64_t end);
+  void delete_redundancy( uint64_t begin, uint64_t end );
 
   // Check Reassembler if there are some bytes could wirte to ByteStream
-  void check_Reassembler(uint64_t begin, Writer&);
+  void check_Reassembler( uint64_t begin, Writer& );
 
-  // Add bytes to the space of reassembler 
-  void add_bytes( uint64_t, std::string &data, bool is_last_substring ,uint64_t left);
+  // Add bytes to the space of reassembler
+  void add_bytes( uint64_t, std::string& data, bool is_last_substring, uint64_t left );
 
-  ByteStream output_; // the Reassembler writes to this ByteStream
-  uint64_t expect_index; // first unassembled index 
-  std::vector< std::pair< std::string, std::pair<uint64_t ,bool> > > unassembled_bytes_; // unassembled bytes which are wait to write to ByteStream
+  ByteStream output_;       // the Reassembler writes to this ByteStream
+  uint64_t expect_index {}; // first unassembled index
+  std::vector<std::pair<std::string, std::pair<uint64_t, bool>>>
+    unassembled_bytes_ {}; // unassembled bytes which are wait to write to ByteStream
 };
