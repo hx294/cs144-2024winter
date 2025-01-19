@@ -9,12 +9,19 @@ void Reassembler::insert( uint64_t first_index, string data, bool is_last_substr
 {
   Writer& w = output_.writer();
   uint64_t left = w.available_capacity();
-  if( first_index <= expect_index ) {
+  if( first_index + data.size() <= expect_index) {
+    if (is_last_substring) w.close();
+  } else if( first_index <= expect_index ) {
     uint64_t pushed_size = min( left , data.size() - ( expect_index - first_index));
     delete_redundancy(expect_index,expect_index + pushed_size);
-    data.erase(0,expect_index-first_index);
+    data = data.erase(0,expect_index-first_index);
+    data.resize(pushed_size);
     w.push(data);
-    if(is_last_substring) w.close();
+    if(is_last_substring) 
+    {
+      w.close();
+      return;
+    }
     expect_index += pushed_size;
     check_Reassembler(expect_index, w);
   } else {
@@ -53,7 +60,7 @@ void Reassembler::delete_redundancy( uint64_t begin, uint64_t end )
       {
         Pair p = {r->first, {r->second.first,false}};
         p.first = p.first.erase(begin-r->second.first, r->second.first + r->first.size()-begin);
-        unassembled_bytes_.insert(r,move(p));
+        r = unassembled_bytes_.insert(r,move(p));
         r++;
       }
       r = unassembled_bytes_.erase(r);
