@@ -31,5 +31,7 @@ private:
   // 期望的比特绝对序列号
   uint64_t stream_index_ {};
   // 初始序列号
-  Wrap32 ISN {0};
+  std::optional<Wrap32> ISN_ {};
+  // 是否断开连接
+  bool finished_ = false;
 };
