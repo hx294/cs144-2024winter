@@ -22,6 +22,6 @@ void TCPReceiver::receive( TCPSenderMessage message )
 TCPReceiverMessage TCPReceiver::send() const
 {
   return {ISN_ ? Wrap32::wrap(absolute_index_,ISN_.value()):ISN_,
-  static_cast<uint16_t>(min(writer().available_capacity() -  reassembler_.bytes_pending(), (1UL << 16) - 1)),
+  static_cast<uint16_t>(min(writer().available_capacity(), (1UL << 16) - 1)),
   false};
 }
