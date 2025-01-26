@@ -16,7 +16,8 @@ void Reassembler::insert( uint64_t first_index, string data, bool is_last_substr
     uint64_t pushed_size = min( left, data.size() - ( expect_index - first_index ) );
     delete_redundancy( expect_index, expect_index + pushed_size );
     data = data.erase( 0, expect_index - first_index );
-    if(pushed_size != data.size()) is_last_substring = false;
+    if ( pushed_size != data.size() )
+      is_last_substring = false;
     data.resize( pushed_size );
     w.push( data );
     if ( is_last_substring ) {

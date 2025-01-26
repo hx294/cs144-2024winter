@@ -30,8 +30,6 @@ private:
 
   // 期望的比特绝对序列号
   uint64_t absolute_index_ {};
-  // 初始序列号
+  // 初始序列号,使用optional，可以代表none
   std::optional<Wrap32> ISN_ {};
-  // 发生错误
-  bool has_error_ {};
 };
