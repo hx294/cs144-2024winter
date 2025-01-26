@@ -32,4 +32,6 @@ private:
   uint64_t absolute_index_ {};
   // 初始序列号
   std::optional<Wrap32> ISN_ {};
+  // 发生错误
+  bool has_error_ {};
 };
