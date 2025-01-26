@@ -32,6 +32,4 @@ private:
   uint64_t stream_index_ {};
   // 初始序列号
   std::optional<Wrap32> ISN_ {};
-  // 是否断开连接
-  bool finished_ = false;
 };
