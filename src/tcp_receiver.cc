@@ -12,8 +12,10 @@ void TCPReceiver::receive( TCPSenderMessage message )
   if ( message.SYN ) {
     ISN_ = optional<Wrap32>{message.seqno};
     absolute_index_++;
+    message.seqno = message.seqno + 1;
   }
   uint64_t current_index = message.seqno.unwrap(ISN_.value(),absolute_index_);
+  if( message.seqno == ISN_.value() || current_index + message.payload.size() < absolute_index_) return;
   reassembler_.insert(current_index >= 1 ? current_index - 1 : 0 ,message.payload,flag);
   absolute_index_ = reassembler_.writer().bytes_pushed()+1;
   if( message.FIN ) { absolute_index_++; }
