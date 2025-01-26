@@ -27,4 +27,9 @@ public:
 
 private:
   Reassembler reassembler_;
+
+  // 期望的比特绝对序列号
+  uint64_t stream_index_ {};
+  // 初始序列号
+  Wrap32 ISN {0};
 };
