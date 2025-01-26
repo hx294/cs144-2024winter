@@ -29,7 +29,7 @@ private:
   Reassembler reassembler_;
 
   // 期望的比特绝对序列号
-  uint64_t stream_index_ {};
+  uint64_t absolute_index_ {};
   // 初始序列号
   std::optional<Wrap32> ISN_ {};
 };
