@@ -11,6 +11,8 @@
 #include <optional>
 #include <queue>
 
+class RetransmissionTimer;
+
 class TCPSender
 {
 public:
@@ -48,4 +50,23 @@ private:
   ByteStream input_;
   Wrap32 isn_;
   uint64_t initial_RTO_ms_;
+
+  // 
+};
+
+class RetransmissionTimer {
+
+  public:
+    explicit RetransmissionTimer( uint64_t t ) : RTO_{ t } 
+      {}
+    void set( uint64_t t)  { RTO_ = t; }
+    void start() {passed_time_ = 0;}
+    
+    uint64_t add_time( uint64_t t);
+
+  private:
+    // Retransmission Timeout
+    uint64_t RTO_;
+    // the time passed 
+    uint64_t passed_time_ {};
 };
