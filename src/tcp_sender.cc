@@ -5,14 +5,12 @@ using namespace std;
 
 uint64_t TCPSender::sequence_numbers_in_flight() const
 {
-  // Your code here.
-  return {};
+  return reader().bytes_popped()-first_out_index_;                                                                                                                      
 }
 
 uint64_t TCPSender::consecutive_retransmissions() const
 {
-  // Your code here.
-  return {};
+  return consecutive_;
 }
 
 void TCPSender::push( const TransmitFunction& transmit )
