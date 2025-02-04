@@ -14,12 +14,13 @@
 class RetransmissionTimer {
 
   public:
-    explicit RetransmissionTimer( uint64_t t ) : RTO_{ t } 
+    explicit RetransmissionTimer( uint64_t t ) : RTO_{ t }
       {}
     void double_timeout() { RTO_ *= 2; }
     void reset_timeout( uint64_t init ) { RTO_ = init; }
-    void start() { passed_time_ = 0; }
-    void stop() { passed_time_ = 0; }
+    void start() { passed_time_ = 0; start_ = true; }
+    void stop() { passed_time_ = 0; start_ = false; }
+    bool has_started() const { return passed_time_ != 0 && start_ == true; }
 
     bool is_expired() const { return passed_time_ >= RTO_; }
     
@@ -30,6 +31,8 @@ class RetransmissionTimer {
     uint64_t RTO_;
     // the time passed 
     uint64_t passed_time_ {};
+    // if timer has started
+    bool start_ {};
 };
 
 class TCPSender
@@ -37,7 +40,7 @@ class TCPSender
 public:
   /* Construct TCP sender with given default Retransmission Timeout and possible ISN */
   TCPSender( ByteStream&& input, Wrap32 isn, uint64_t initial_RTO_ms )
-    : input_( std::move( input ) ), isn_( isn ), initial_RTO_ms_( initial_RTO_ms ), timer_{initial_RTO_ms}, first_out_index_{isn.unwrap(Wrap32(0),0)}
+    : input_( std::move( input ) ), isn_( isn ), initial_RTO_ms_( initial_RTO_ms ), timer_{initial_RTO_ms}, first_out_index_{isn.unwrap(Wrap32(0),0)}, last_out_index_next_{first_out_index_}
   {}
 
   /* Generate an empty TCPSenderMessage */
@@ -84,5 +87,7 @@ private:
   std::queue<TCPSenderMessage> outstanding_segments_ {};
   // first outstanding index
   uint64_t first_out_index_ ;
+  // last outstanding index 's next
+  uint64_t last_out_index_next_;
 };
 
