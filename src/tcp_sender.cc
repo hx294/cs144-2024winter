@@ -1,15 +1,12 @@
 #include "tcp_sender.hh"
 #include "tcp_config.hh"
+#include <algorithm>
 
 using namespace std;
 
 uint64_t TCPSender::sequence_numbers_in_flight() const
 {
-  uint64_t extra = 1; // FIN 占据一个序列号。
-  if( reader().is_finished() ) {
-    extra ++;
-  }
-  return extra + reader().bytes_popped() - first_out_index_;                                                                                                                      
+  return last_out_index_next_ - first_out_index_;                                                                                                                      
 }
 
 uint64_t TCPSender::consecutive_retransmissions() const
@@ -19,8 +16,61 @@ uint64_t TCPSender::consecutive_retransmissions() const
 
 void TCPSender::push( const TransmitFunction& transmit )
 {
-  // Your code here.
-  (void)transmit;
+  TCPSenderMessage m;
+  // 窗口大小为0
+  if( window_size_ == 0 ) {
+    // 伪装成窗口为1的样子
+    m = {isn_,true,"",false,false};
+    transmit(m);
+  } else {
+    Reader& r = input_.reader();
+    string_view s = r.peek();
+    // 剩余的窗口序列号数量
+    uint64_t left_space = window_size_;
+    first_out_index_ = last_out_index_next_;
+  
+    // 第一个并携带SYN标志的报文段
+    if( r.bytes_popped() == 0 && !r.is_finished() ) {
+      // 实际的序列号为 要包括SYN
+      left_space --;
+      m.SYN = true;
+    }
+
+    // 这部分发送的都是最大报文段
+    while( left_space >= TCPConfig::MAX_PAYLOAD_SIZE - m.sequence_length() 
+    && s.size() >= TCPConfig::MAX_PAYLOAD_SIZE - m.sequence_length()  ) {
+      // 一个报文段的大小是剩余窗口大小，报文段最大值，外出字节流未pop量的最小值。
+      uint64_t msg_size = TCPConfig::MAX_PAYLOAD_SIZE - m.sequence_length();
+      left_space -= msg_size;
+      s.copy(m.payload.data(),msg_size);
+      outstanding_segments_.push(move(m));
+      transmit(outstanding_segments_.back());
+      s = s.substr(msg_size,s.size()-msg_size);
+      m = {};
+    }
+
+    // 发送最后一个报文段，不是最大报文段
+    uint64_t last_seg_size = min( left_space, s.size() );
+    left_space -= last_seg_size;
+    s.copy(m.payload.data(),last_seg_size);
+    s = s.substr(last_seg_size, s.size() - last_seg_size);
+    // 是否需要承载一个FIN,以及窗口是否能容纳
+    if( r.is_finished() && left_space) {
+        m.FIN = true;
+        left_space --;
+    }
+    outstanding_segments_.push(move(m));
+    transmit(outstanding_segments_.back());
+
+    last_out_index_next_ += (window_size_ - left_space);
+    r.pop(last_out_index_next_ - first_out_index_);
+
+  }
+  consecutive_++;
+
+  if(timer_.has_started() == false) {
+    timer_.start();
+  }
 }
 
 TCPSenderMessage TCPSender::make_empty_message() const
@@ -39,10 +89,10 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
     }
     left_ = msg.ackno.value();
   }
-  right_ = left_ + msg.window_size;
+  window_size_ = msg.window_size;
 
   // 所有未完成的数据被接收后，停止重发计时器
-  if(right_ == Wrap32::wrap(last_out_index_next_,isn_)) {
+  if(left_ + window_size_ == Wrap32::wrap(last_out_index_next_,isn_)) {
     timer_.stop();
   }
 
@@ -65,7 +115,7 @@ void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& trans
     transmit(outstanding_segments_.front());  
   }
   
-  if(right_ != left_) {
+  if(window_size_ != 0) {
     consecutive_ ++;
     timer_.double_timeout();
   }
