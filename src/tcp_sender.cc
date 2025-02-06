@@ -43,8 +43,10 @@ void TCPSender::push( const TransmitFunction& transmit )
       uint64_t msg_size = TCPConfig::MAX_PAYLOAD_SIZE - m.sequence_length();
       left_space -= msg_size;
       s.copy(m.payload.data(),msg_size);
+      m.seqno = Wrap32::wrap(last_out_index_next_,isn_);
       outstanding_segments_.push(move(m));
       transmit(outstanding_segments_.back());
+      last_out_index_next_ += outstanding_segments_.back().sequence_length();
       s = s.substr(msg_size,s.size()-msg_size);
       m = {};
     }
@@ -61,8 +63,8 @@ void TCPSender::push( const TransmitFunction& transmit )
     }
     outstanding_segments_.push(move(m));
     transmit(outstanding_segments_.back());
+    last_out_index_next_ += outstanding_segments_.back().sequence_length();
 
-    last_out_index_next_ += (window_size_ - left_space);
     r.pop(last_out_index_next_ - first_out_index_);
 
   }
@@ -75,8 +77,7 @@ void TCPSender::push( const TransmitFunction& transmit )
 
 TCPSenderMessage TCPSender::make_empty_message() const
 {
-  // Your code here.
-  return {};
+  return {Wrap32::wrap(first_out_index_,isn_),false,"",false,false};
 }
 
 void TCPSender::receive( const TCPReceiverMessage& msg )
