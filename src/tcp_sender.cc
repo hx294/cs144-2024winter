@@ -93,15 +93,20 @@ TCPSenderMessage TCPSender::make_empty_message() const
 
 void TCPSender::receive( const TCPReceiverMessage& msg )
 {
+
+  window_size_ = msg.window_size;
   if(msg.ackno) {
-    if( left_ != msg.ackno.value() ) {
+    uint64_t temp = msg.ackno.value().unwrap(isn_,first_out_index_);
+    if( temp > first_out_index_  && temp <= last_out_index_next_ ) {
       timer_.reset_timeout(initial_RTO_ms_);
       timer_.start();
       consecutive_ = 0;
+      left_ = msg.ackno.value();
+    } else {
+      /* 忽略 */
+      return ;
     }
-    left_ = msg.ackno.value();
   }
-  window_size_ = msg.window_size;
 
   // 所有未完成的数据被接收后，停止重发计时器
   if(left_ == Wrap32::wrap(last_out_index_next_,isn_)) {
