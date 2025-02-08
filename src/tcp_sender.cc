@@ -30,7 +30,7 @@ void TCPSender::push( const TransmitFunction& transmit )
   } else {
     // 剩余的窗口序列号数量
     uint64_t left_space;
-    if(window_size_ > ( last_out_index_next_ - first_out_index_ )) 
+    if(window_size_ >= ( last_out_index_next_ - first_out_index_ )) 
       left_space = window_size_ - ( last_out_index_next_ - first_out_index_ );
     else left_space = 0;
   
@@ -58,29 +58,28 @@ void TCPSender::push( const TransmitFunction& transmit )
 
     // 发送最后一个报文段，不是最大报文段
     uint64_t last_seg_size = min( left_space, s.size() );
-    if(last_seg_size > 0 || m.sequence_length() > 0) {
-      left_space -= last_seg_size;
-      m.payload.assign(s.data(),last_seg_size);
-      // cout << "payload: " << m.payload << endl;
-      m.seqno = Wrap32::wrap(last_out_index_next_,isn_);
-      // cout << "s: " << s << endl;
-      s = s.substr(last_seg_size, s.size() - last_seg_size);
-      // 是否需要承载一个FIN,以及窗口是否能容纳
-      if( r.is_finished() && left_space) {
-          m.FIN = true;
-          left_space --;
-      }
+    left_space -= last_seg_size;
+    m.payload.assign(s.data(),last_seg_size);
+    // cout << "payload: " << m.payload << endl;
+    m.seqno = Wrap32::wrap(last_out_index_next_,isn_);
+    // cout << "s: " << s << endl;
+    s = s.substr(last_seg_size, s.size() - last_seg_size);
+    // 是否需要承载一个FIN,以及窗口是否能容纳
+    if( r.is_finished() && left_space) {
+        m.FIN = true;
+        left_space --;
+    }
+    // 这个报文可能有syn，载荷，fin 中的一种或多种
+    if( m.sequence_length() > 0) {
       outstanding_segments_.push(move(m));
       transmit(outstanding_segments_.back());
       last_out_index_next_ += outstanding_segments_.back().sequence_length();
-      r.pop(last_out_index_next_-first_out_index_-outstanding_segments_.front().SYN - outstanding_segments_.back().FIN);
     }
+    r.pop(r.peek().size()-s.size());
 
   }
 
   if( outstanding_segments_.size() && timer_.has_started() == false) {
-    cout << "timer started" << endl;
-    consecutive_++;
     timer_.start();
   }
 }
@@ -127,6 +126,9 @@ void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& trans
   timer_.add_time(ms_since_last_tick);
   if(timer_.is_expired() && outstanding_segments_.size()) {
     cout <<  "时钟过期" << endl;
+    if(consecutive_ == TCPConfig::MAX_RETX_ATTEMPTS ) {
+      outstanding_segments_.front().RST = true;
+    }
     transmit(outstanding_segments_.front());  
     if(window_size_ != 0) {
       consecutive_ ++;

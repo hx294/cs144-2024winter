@@ -77,9 +77,9 @@ private:
   uint64_t consecutive_ {};
   // the number of outstanding bytes
   uint64_t outstanding_bytes_ {};
-  // recevier window's left edge & window size
+  // recevier window's left edge & window size ( init is 1 for SYN)
   Wrap32 left_ {0};
-  uint16_t window_size_ {0};
+  uint16_t window_size_ {1};
   // RetransmissionTimer initialized in constructor
   RetransmissionTimer timer_ ;
 
