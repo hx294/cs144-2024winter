@@ -18,21 +18,24 @@ uint64_t TCPSender::consecutive_retransmissions() const
 void TCPSender::push( const TransmitFunction& transmit )
 {
   TCPSenderMessage m;
+  Reader& r = input_.reader();
+  string_view s = r.peek();
 
   // 窗口大小为0
-  if( window_size_ == 0 ) {
+  if( window_size_ == 0 && r.bytes_buffered() > 0 ) {
     // 伪装成窗口为1的样子
-    m = {isn_,true,"",false,false};
+    m.seqno = Wrap32::wrap(last_out_index_next_,isn_);
+    m.payload.assign(s.data(), 1);
     transmit(m);
-    last_out_index_next_ ++;
   } else {
-    Reader& r = input_.reader();
-    string_view s = r.peek();
     // 剩余的窗口序列号数量
-    uint64_t left_space = window_size_ - ( last_out_index_next_ - first_out_index_ );
+    uint64_t left_space;
+    if(window_size_ > ( last_out_index_next_ - first_out_index_ )) 
+      left_space = window_size_ - ( last_out_index_next_ - first_out_index_ );
+    else left_space = 0;
   
     // 第一个并携带SYN标志的报文段
-    if( first_out_index_ == isn_.unwrap(isn_,0) && !r.is_finished() ) {
+    if( last_out_index_next_ == isn_.unwrap(isn_,0) && !r.is_finished() ) {
       // 实际的序列号为 要包括SYN
       left_space --;
       m.SYN = true;
@@ -55,7 +58,7 @@ void TCPSender::push( const TransmitFunction& transmit )
 
     // 发送最后一个报文段，不是最大报文段
     uint64_t last_seg_size = min( left_space, s.size() );
-    if(last_seg_size > 0) {
+    if(last_seg_size > 0 || m.sequence_length() > 0) {
       left_space -= last_seg_size;
       m.payload.assign(s.data(),last_seg_size);
       // cout << "payload: " << m.payload << endl;
@@ -70,17 +73,15 @@ void TCPSender::push( const TransmitFunction& transmit )
       outstanding_segments_.push(move(m));
       transmit(outstanding_segments_.back());
       last_out_index_next_ += outstanding_segments_.back().sequence_length();
-      r.pop(last_out_index_next_-first_out_index_+outstanding_segments_.front().SYN + outstanding_segments_.back().FIN);
+      r.pop(last_out_index_next_-first_out_index_-outstanding_segments_.front().SYN - outstanding_segments_.back().FIN);
     }
 
   }
 
-  if (outstanding_segments_.size() ) {
+  if( outstanding_segments_.size() && timer_.has_started() == false) {
+    cout << "timer started" << endl;
     consecutive_++;
-
-    if(timer_.has_started() == false) {
-      timer_.start();
-    }
+    timer_.start();
   }
 }
 
@@ -113,7 +114,7 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
     outstanding_segments_.pop();
   }
 
-  first_out_index_ = left_.unwrap(isn_,first_out_index_);
+  first_out_index_ = max( left_.unwrap(isn_,first_out_index_), first_out_index_);
 }
 
 void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& transmit )
@@ -122,15 +123,16 @@ void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& trans
     return;
   }
 
+  cout << "tick" << endl;
   timer_.add_time(ms_since_last_tick);
   if(timer_.is_expired() && outstanding_segments_.size()) {
+    cout <<  "时钟过期" << endl;
     transmit(outstanding_segments_.front());  
-  }
-  
-  if(window_size_ != 0) {
-    consecutive_ ++;
-    timer_.double_timeout();
-  }
+    if(window_size_ != 0) {
+      consecutive_ ++;
+      timer_.double_timeout();
+    }
 
-  timer_.start();
+    timer_.start();
+  }
 }

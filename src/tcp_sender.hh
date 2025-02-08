@@ -20,7 +20,7 @@ class RetransmissionTimer {
     void reset_timeout( uint64_t init ) { RTO_ = init; }
     void start() { passed_time_ = 0; start_ = true; }
     void stop() { passed_time_ = 0; start_ = false; }
-    bool has_started() const { return passed_time_ != 0 && start_ == true; }
+    bool has_started() const { return start_ == true; }
 
     bool is_expired() const { return passed_time_ >= RTO_; }
     
