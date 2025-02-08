@@ -35,7 +35,7 @@ void TCPSender::push( const TransmitFunction& transmit )
     else left_space = 0;
   
     // 第一个并携带SYN标志的报文段
-    if( last_out_index_next_ == isn_.unwrap(isn_,0) && !r.is_finished() ) {
+    if( last_out_index_next_ == isn_.unwrap(isn_,0) ) {
       // 实际的序列号为 要包括SYN
       left_space --;
       m.SYN = true;
@@ -59,15 +59,18 @@ void TCPSender::push( const TransmitFunction& transmit )
     // 发送最后一个报文段，不是最大报文段
     uint64_t last_seg_size = min( left_space, s.size() );
     left_space -= last_seg_size;
+    cout << left_space  << ' ' << last_seg_size << endl;
     m.payload.assign(s.data(),last_seg_size);
     // cout << "payload: " << m.payload << endl;
     m.seqno = Wrap32::wrap(last_out_index_next_,isn_);
     // cout << "s: " << s << endl;
     s = s.substr(last_seg_size, s.size() - last_seg_size);
+    r.pop(r.peek().size()-s.size());
     // 是否需要承载一个FIN,以及窗口是否能容纳
     if( r.is_finished() && left_space) {
-        m.FIN = true;
-        left_space --;
+      cout << "fin" << left_space << endl;
+      m.FIN = true;
+      left_space --;
     }
     // 这个报文可能有syn，载荷，fin 中的一种或多种
     if( m.sequence_length() > 0) {
@@ -75,7 +78,6 @@ void TCPSender::push( const TransmitFunction& transmit )
       transmit(outstanding_segments_.back());
       last_out_index_next_ += outstanding_segments_.back().sequence_length();
     }
-    r.pop(r.peek().size()-s.size());
 
   }
 
