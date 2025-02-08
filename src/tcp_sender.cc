@@ -19,11 +19,6 @@ void TCPSender::push( const TransmitFunction& transmit )
 {
   TCPSenderMessage m;
 
-  // 上次的发送任务还未完成
-  if(last_out_index_next_ != first_out_index_) {
-    return;
-  }
-
   // 窗口大小为0
   if( window_size_ == 0 ) {
     // 伪装成窗口为1的样子
@@ -34,8 +29,7 @@ void TCPSender::push( const TransmitFunction& transmit )
     Reader& r = input_.reader();
     string_view s = r.peek();
     // 剩余的窗口序列号数量
-    uint64_t left_space = window_size_;
-    first_out_index_ = last_out_index_next_;
+    uint64_t left_space = window_size_ - ( last_out_index_next_ - first_out_index_ );
   
     // 第一个并携带SYN标志的报文段
     if( first_out_index_ == isn_.unwrap(isn_,0) && !r.is_finished() ) {
@@ -64,9 +58,9 @@ void TCPSender::push( const TransmitFunction& transmit )
     if(last_seg_size > 0) {
       left_space -= last_seg_size;
       m.payload.assign(s.data(),last_seg_size);
-      cout << "payload: " << m.payload << endl;
+      // cout << "payload: " << m.payload << endl;
       m.seqno = Wrap32::wrap(last_out_index_next_,isn_);
-      cout << "s: " << s << endl;
+      // cout << "s: " << s << endl;
       s = s.substr(last_seg_size, s.size() - last_seg_size);
       // 是否需要承载一个FIN,以及窗口是否能容纳
       if( r.is_finished() && left_space) {
