@@ -22,65 +22,54 @@ void TCPSender::push( const TransmitFunction& transmit )
   Reader& r = input_.reader();
   string_view s = r.peek();
 
-  // 窗口大小为0
-  if( window_size_ == 0 && r.bytes_buffered() > 0 ) {
-    // 伪装成窗口为1的样子
-    m.seqno = Wrap32::wrap(last_out_index_next_,isn_);
-    m.payload.assign(s.data(), 1);
-    transmit(m);
-  } else {
-    // 剩余的窗口序列号数量
-    uint64_t left_space;
-    if(window_size_ >= ( last_out_index_next_ - first_out_index_ )) 
-      left_space = window_size_ - ( last_out_index_next_ - first_out_index_ );
-    else left_space = 0;
-  
-    // 第一个并携带SYN标志的报文段
-    if( last_out_index_next_ == isn_.unwrap(isn_,0) ) {
-      // 实际的序列号为 要包括SYN
-      left_space --;
-      m.SYN = true;
-    }
+  // 接收方剩余的窗口序列号数量
+  uint64_t left_space;
+  if(window_size_ > ( last_out_index_next_ - first_out_index_ )) 
+    left_space = window_size_ - ( last_out_index_next_ - first_out_index_ );
+  else if(window_size_ == 0 && last_out_index_next_ - first_out_index_ == 0) left_space = 1;
+  else left_space = 0;
 
-    // 这部分发送的都是最大报文段,不具有其他标志
-    while( left_space >= TCPConfig::MAX_PAYLOAD_SIZE
-    && s.size() > TCPConfig::MAX_PAYLOAD_SIZE) {
-      uint64_t msg_size = TCPConfig::MAX_PAYLOAD_SIZE;
-      left_space -= msg_size;
-      m.payload.assign(s.data(), msg_size);
-      m.seqno = Wrap32::wrap(last_out_index_next_,isn_);
-      outstanding_segments_.push(move(m));
-      transmit(outstanding_segments_.back());
-      last_out_index_next_ += outstanding_segments_.back().sequence_length();
-      s = s.substr(msg_size,s.size()-msg_size);
-      m = {};
-    }
-
-    // 发送最后一个报文段
-    uint64_t last_seg_size = min( left_space, s.size() );
-    left_space -= last_seg_size;
-    cout << left_space  << ' ' << last_seg_size << endl;
-    m.payload.assign(s.data(),last_seg_size);
-    // cout << "payload: " << m.payload << endl;
-    m.seqno = Wrap32::wrap(last_out_index_next_,isn_);
-    // cout << "s: " << s << endl;
-    s = s.substr(last_seg_size, s.size() - last_seg_size);
-    r.pop(r.peek().size()-s.size());
-    // 是否需要承载一个FIN,以及窗口是否能容纳
-    if( r.is_finished() && left_space) {
-      cout << "fin" << left_space << endl;
-      m.FIN = true;
-      left_space --;
-      FIN_sent = true;
-    }
-    // 这个报文可能有syn，载荷，fin 中的一种或多种
-    if( m.sequence_length() > 0) {
-      outstanding_segments_.push(move(m));
-      transmit(outstanding_segments_.back());
-      last_out_index_next_ += outstanding_segments_.back().sequence_length();
-    }
-
+  // 第一个并携带SYN标志的报文段
+  if( last_out_index_next_ == isn_.unwrap(isn_,0) ) {
+    // 实际的序列号为 要包括SYN
+    left_space --;
+    m.SYN = true;
   }
+
+  // 这部分发送的都是最大报文段,不具有其他标志
+  while( left_space >= TCPConfig::MAX_PAYLOAD_SIZE
+  && s.size() > TCPConfig::MAX_PAYLOAD_SIZE) {
+    uint64_t msg_size = TCPConfig::MAX_PAYLOAD_SIZE;
+    left_space -= msg_size;
+    m.payload.assign(s.data(), msg_size);
+    m.seqno = Wrap32::wrap(last_out_index_next_,isn_);
+    outstanding_segments_.push(move(m));
+    transmit(outstanding_segments_.back());
+    last_out_index_next_ += outstanding_segments_.back().sequence_length();
+    s = s.substr(msg_size,s.size()-msg_size);
+    m = {};
+  }
+
+  // 发送最后一个报文段
+  uint64_t last_seg_size = min( left_space, s.size() );
+  left_space -= last_seg_size;
+  m.payload.assign(s.data(),last_seg_size);
+  m.seqno = Wrap32::wrap(last_out_index_next_,isn_);
+  s = s.substr(last_seg_size, s.size() - last_seg_size);
+  r.pop(r.peek().size()-s.size());
+  // 是否需要承载一个FIN,以及窗口是否能容纳
+  if( r.is_finished() && left_space) {
+    m.FIN = true;
+    left_space --;
+    FIN_sent = true;
+  }
+  // 这个报文可能有syn，载荷，fin 中的一种或多种
+  if( m.sequence_length() > 0) {
+    outstanding_segments_.push(move(m));
+    transmit(outstanding_segments_.back());
+    last_out_index_next_ += outstanding_segments_.back().sequence_length();
+  }
+
 
   if( outstanding_segments_.size() && timer_.has_started() == false) {
     timer_.start();
@@ -131,10 +120,8 @@ void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& trans
     return;
   }
 
-  cout << "tick" << endl;
   timer_.add_time(ms_since_last_tick);
   if(timer_.is_expired() && outstanding_segments_.size()) {
-    cout <<  "时钟过期" << endl;
     if(consecutive_ == TCPConfig::MAX_RETX_ATTEMPTS ) {
       outstanding_segments_.front().RST = true;
     }
