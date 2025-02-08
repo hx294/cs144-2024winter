@@ -17,6 +17,7 @@ uint64_t TCPSender::consecutive_retransmissions() const
 
 void TCPSender::push( const TransmitFunction& transmit )
 {
+  if(FIN_sent) return;
   TCPSenderMessage m;
   Reader& r = input_.reader();
   string_view s = r.peek();
@@ -41,11 +42,10 @@ void TCPSender::push( const TransmitFunction& transmit )
       m.SYN = true;
     }
 
-    // 这部分发送的都是最大报文段
-    while( left_space >= TCPConfig::MAX_PAYLOAD_SIZE - m.sequence_length() 
-    && s.size() >= TCPConfig::MAX_PAYLOAD_SIZE - m.sequence_length()  ) {
-      // 一个报文段的大小是剩余窗口大小，报文段最大值，外出字节流未pop量的最小值。
-      uint64_t msg_size = TCPConfig::MAX_PAYLOAD_SIZE - m.sequence_length();
+    // 这部分发送的都是最大报文段,不具有其他标志
+    while( left_space >= TCPConfig::MAX_PAYLOAD_SIZE
+    && s.size() > TCPConfig::MAX_PAYLOAD_SIZE) {
+      uint64_t msg_size = TCPConfig::MAX_PAYLOAD_SIZE;
       left_space -= msg_size;
       m.payload.assign(s.data(), msg_size);
       m.seqno = Wrap32::wrap(last_out_index_next_,isn_);
@@ -56,7 +56,7 @@ void TCPSender::push( const TransmitFunction& transmit )
       m = {};
     }
 
-    // 发送最后一个报文段，不是最大报文段
+    // 发送最后一个报文段
     uint64_t last_seg_size = min( left_space, s.size() );
     left_space -= last_seg_size;
     cout << left_space  << ' ' << last_seg_size << endl;
@@ -71,6 +71,7 @@ void TCPSender::push( const TransmitFunction& transmit )
       cout << "fin" << left_space << endl;
       m.FIN = true;
       left_space --;
+      FIN_sent = true;
     }
     // 这个报文可能有syn，载荷，fin 中的一种或多种
     if( m.sequence_length() > 0) {
@@ -106,6 +107,8 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
       /* 忽略 */
       return ;
     }
+  } else {
+    return ;
   }
 
   // 所有未完成的数据被接收后，停止重发计时器
@@ -120,7 +123,6 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
     outstanding_segments_.pop();
   }
 
-  first_out_index_ = max( left_.unwrap(isn_,first_out_index_), first_out_index_);
 }
 
 void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& transmit )

@@ -90,6 +90,9 @@ private:
   // last outstanding index 's next
   uint64_t last_out_index_next_ {};
 
+  // FIN has been sent
+  bool FIN_sent {};
+
   // methods
 };
 
