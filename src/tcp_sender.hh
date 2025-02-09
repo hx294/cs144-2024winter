@@ -11,28 +11,36 @@
 #include <optional>
 #include <queue>
 
-class RetransmissionTimer {
+class RetransmissionTimer
+{
 
-  public:
-    explicit RetransmissionTimer( uint64_t t ) : RTO_{ t }
-      {}
-    void double_timeout() { RTO_ *= 2; }
-    void reset_timeout( uint64_t init ) { RTO_ = init; }
-    void start() { passed_time_ = 0; start_ = true; }
-    void stop() { passed_time_ = 0; start_ = false; }
-    bool has_started() const { return start_ == true; }
+public:
+  explicit RetransmissionTimer( uint64_t t ) : RTO_ { t } {}
+  void double_timeout() { RTO_ *= 2; }
+  void reset_timeout( uint64_t init ) { RTO_ = init; }
+  void start()
+  {
+    passed_time_ = 0;
+    start_ = true;
+  }
+  void stop()
+  {
+    passed_time_ = 0;
+    start_ = false;
+  }
+  bool has_started() const { return start_ == true; }
 
-    bool is_expired() const { return passed_time_ >= RTO_; }
-    
-    void add_time( const uint64_t t) { passed_time_ += t; }
+  bool is_expired() const { return passed_time_ >= RTO_; }
 
-  private:
-    // Retransmission Timeout
-    uint64_t RTO_;
-    // the time passed 
-    uint64_t passed_time_ {};
-    // if timer has started
-    bool start_ {};
+  void add_time( const uint64_t t ) { passed_time_ += t; }
+
+private:
+  // Retransmission Timeout
+  uint64_t RTO_;
+  // the time passed
+  uint64_t passed_time_ {};
+  // if timer has started
+  bool start_ {};
 };
 
 class TCPSender
@@ -40,7 +48,7 @@ class TCPSender
 public:
   /* Construct TCP sender with given default Retransmission Timeout and possible ISN */
   TCPSender( ByteStream&& input, Wrap32 isn, uint64_t initial_RTO_ms )
-    : input_( std::move( input ) ), isn_( isn ), initial_RTO_ms_( initial_RTO_ms ), timer_{initial_RTO_ms}
+    : input_( std::move( input ) ), isn_( isn ), initial_RTO_ms_( initial_RTO_ms ), timer_ { initial_RTO_ms }
   {}
 
   /* Generate an empty TCPSenderMessage */
@@ -73,15 +81,13 @@ private:
   Wrap32 isn_;
   uint64_t initial_RTO_ms_;
 
-  // the number of consective retransmissions 
+  // the number of consective retransmissions
   uint64_t consecutive_ {};
-  // the number of outstanding bytes
-  uint64_t outstanding_bytes_ {};
   // recevier window's left edge & window size ( init is 1 for SYN)
-  Wrap32 left_ {0};
-  uint16_t window_size_ {1};
+  Wrap32 left_ { 0 };
+  uint16_t window_size_ { 1 };
   // RetransmissionTimer initialized in constructor
-  RetransmissionTimer timer_ ;
+  RetransmissionTimer timer_;
 
   // outstanding segments
   std::queue<TCPSenderMessage> outstanding_segments_ {};
@@ -95,4 +101,3 @@ private:
 
   // methods
 };
-
