@@ -44,12 +44,11 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
       res.first.push_back(dgram);
       if(res.second < 5000) { return; }
     }
-    EthernetHeader h {ETHERNET_BROADCAST, ethernet_address_, EthernetHeader::TYPE_IPv4};
+    EthernetHeader h {ETHERNET_BROADCAST, ethernet_address_, EthernetHeader::TYPE_ARP};
     ARPMessage broadcast_m { 
       .opcode = ARPMessage::OPCODE_REQUEST,
       .sender_ethernet_address = ethernet_address_,
       .sender_ip_address = ip_address_.ipv4_numeric(), 
-      .target_ethernet_address = ETHERNET_BROADCAST, 
       .target_ip_address = next_hop.ipv4_numeric()};
     transmit({h,serialize(broadcast_m)});
   }
