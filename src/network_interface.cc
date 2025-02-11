@@ -27,42 +27,79 @@ NetworkInterface::NetworkInterface( string_view name,
 //! can be converted to a uint32_t (raw 32-bit IP address) by using the Address::ipv4_numeric() method.
 void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Address& next_hop )
 {
-  EthernetHeader h {mappings_.at(next_hop).first, ethernet_address_, EthernetHeader::TYPE_IPv4};
-  Serializer s {};
-  if (mappings_.find(next_hop) != mappings_.end()) {
+  if (mappings_.find(next_hop.ipv4_numeric()) != mappings_.end()) {
     // 能够在映射中找到目标以太网地址，就即刻发送报文。
     // 将数据报序列化，即统一格式化，让格式适用不同平台，便于在网络上传输。
-    dgram.serialize(s);
-    transmit({h,s.output()});
+    EthernetHeader h {mappings_.at(next_hop.ipv4_numeric()).first, ethernet_address_, EthernetHeader::TYPE_IPv4};
+    transmit({h,serialize(dgram)});
   } else {
     // 找不到以太网地址
     // 1. 如果是没有相同IP,加入等待队列中，就ARP请求广播
     // 2. 如果是有相同ip，加入到队列中，原来等待时间不小于5s就继续广播，否则立即退出。
-    if(datagrams_waiting_.find(next_hop) == datagrams_waiting_.end())
+    if(datagrams_waiting_.find(next_hop.ipv4_numeric()) == datagrams_waiting_.end())
     {
-      datagrams_waiting_.emplace(next_hop,make_pair(vector{dgram},0));
+      datagrams_waiting_.emplace(next_hop.ipv4_numeric(),make_pair(vector{dgram},0));
     } else {
-      auto& res = datagrams_waiting_.at(next_hop);
+      auto& res = datagrams_waiting_.at(next_hop.ipv4_numeric());
       res.first.push_back(dgram);
       if(res.second < 5000) { return; }
     }
-    
+    EthernetHeader h {ETHERNET_BROADCAST, ethernet_address_, EthernetHeader::TYPE_IPv4};
     ARPMessage broadcast_m { 
       .opcode = ARPMessage::OPCODE_REQUEST,
       .sender_ethernet_address = ethernet_address_,
       .sender_ip_address = ip_address_.ipv4_numeric(), 
       .target_ethernet_address = ETHERNET_BROADCAST, 
       .target_ip_address = next_hop.ipv4_numeric()};
-    broadcast_m.serialize(s);
-    transmit({h,s.output()});
+    transmit({h,serialize(broadcast_m)});
   }
 }
 
 //! \param[in] frame the incoming Ethernet frame
 void NetworkInterface::recv_frame( const EthernetFrame& frame )
 {
-  // Your code here.
-  (void)frame;
+  // 目标地址不是该网络接口的帧应该忽略
+  if ( frame.header.dst != ethernet_address_ && frame.header.dst != ETHERNET_BROADCAST) {
+    return;
+  }
+
+  switch( frame.header.type )
+  {
+    case EthernetHeader::TYPE_IPv4:
+    {
+      // 解析，写入datagram_received
+      InternetDatagram datagram {};
+      if( parse( datagram, frame.payload) ) {
+        datagrams_received_.emplace(move(datagram));
+      }
+      break;
+    }
+    case EthernetHeader::TYPE_ARP:
+    {
+      // 解析，并记住映射关系，如果是ARP请求还需要给予回复。
+      ARPMessage arpm {};
+      if( parse( arpm, frame.payload ) ) {
+        if( arpm.opcode == ARPMessage::OPCODE_REQUEST ) {
+          EthernetHeader h{ arpm.sender_ethernet_address , ethernet_address_, EthernetHeader::TYPE_ARP};
+          ARPMessage reply{
+            .opcode = ARPMessage::OPCODE_REPLY,
+            .sender_ethernet_address = ethernet_address_,
+            .sender_ip_address = ip_address_.ipv4_numeric(),
+            .target_ethernet_address = arpm.sender_ethernet_address,
+            .target_ip_address = arpm.target_ip_address};
+          transmit( {h, serialize(reply)} );
+        }
+        // 重新计时或者新元素
+        if( mappings_.find(arpm.sender_ip_address) == mappings_.end())
+        {
+          mappings_.emplace(move(arpm.sender_ip_address), make_pair(move(arpm.sender_ethernet_address),0));
+        } else {
+          mappings_.at(arpm.sender_ip_address).second = 0;
+        }
+      }
+      break;
+    }
+  }
 }
 
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method

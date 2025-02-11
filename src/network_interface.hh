@@ -83,14 +83,9 @@ private:
   // Datagrams that have been received
   std::queue<InternetDatagram> datagrams_received_ {};
 
-  struct Address_hash {
-    size_t operator()(const Address &a) const {
-      return std::hash<uint32_t>()(a.ipv4_numeric());
-    }
-  };
   // mapping between IP address and MAC address, maintaining time
-  std::unordered_map<Address, std::pair<EthernetAddress, uint64_t>, Address_hash> mappings_ {};
+  std::unordered_map<uint32_t, std::pair<EthernetAddress, uint64_t>> mappings_ {};
 
   // Datagrams that wait for ARP reply, waiting time
-  std::unordered_map<Address, std::pair<std::vector<InternetDatagram>, uint64_t>, Address_hash> datagrams_waiting_ {};
+  std::unordered_map<uint32_t, std::pair<std::vector<InternetDatagram>, uint64_t>> datagrams_waiting_ {};
 };
