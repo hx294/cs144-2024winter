@@ -1,6 +1,7 @@
 #pragma once
 
 #include <queue>
+#include <unordered_map>
 
 #include "address.hh"
 #include "ethernet_frame.hh"
@@ -81,4 +82,15 @@ private:
 
   // Datagrams that have been received
   std::queue<InternetDatagram> datagrams_received_ {};
+
+  struct Address_hash {
+    size_t operator()(const Address &a) const {
+      return std::hash<uint32_t>()(a.ipv4_numeric());
+    }
+  };
+  // mapping between IP address and MAC address, maintaining time
+  std::unordered_map<Address, std::pair<EthernetAddress, uint64_t>, Address_hash> mappings_ {};
+
+  // Datagrams that wait for ARP reply, waiting time
+  std::unordered_map<Address, std::pair<std::vector<InternetDatagram>, uint64_t>, Address_hash> datagrams_waiting_ {};
 };
