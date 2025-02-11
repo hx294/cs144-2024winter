@@ -113,8 +113,19 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
 void NetworkInterface::tick( const size_t ms_since_last_tick )
 {
-  (void)ms_since_last_tick;
-  // 遍历映射关系，剔除过期关系
-
-  // 遍历未发送报文段
+  // 遍历映射关系，增加保存时间，剔除过期关系
+  for( auto it = mappings_.begin(); it != mappings_.end(); ) 
+  {
+    it->second.second += ms_since_last_tick;
+    if( it->second.second > 30 ) {
+      it = mappings_.erase(it);
+    } else {
+      it ++;
+    }
+  }
+  // 遍历未发送报文段, 增加等待时间
+  for( auto& datagram: datagrams_waiting_)
+  {
+    datagram.second.second += ms_since_last_tick;
+  }
 }
