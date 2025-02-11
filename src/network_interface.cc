@@ -89,9 +89,17 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
             .target_ip_address = arpm.target_ip_address};
           transmit( {h, serialize(reply)} );
         }
-        // 重新计时或者新元素
+        // 映射关系重新计时或者新元素
         if( mappings_.find(arpm.sender_ip_address) == mappings_.end())
         {
+          // 查看 datagrams_waiting 数组，是否有可以发送的报文
+          if(datagrams_waiting_.find(arpm.sender_ip_address) != datagrams_waiting_.end()) {
+            EthernetHeader h{ arpm.sender_ethernet_address , ethernet_address_, EthernetHeader::TYPE_IPv4};
+            for(auto& a: datagrams_waiting_.at(arpm.sender_ip_address).first) {
+              transmit({h, serialize(a)});
+            }
+            datagrams_waiting_.erase(arpm.sender_ip_address);
+          }
           mappings_.emplace(move(arpm.sender_ip_address), make_pair(move(arpm.sender_ethernet_address),0));
         } else {
           mappings_.at(arpm.sender_ip_address).second = 0;
@@ -105,6 +113,8 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
 void NetworkInterface::tick( const size_t ms_since_last_tick )
 {
-  // Your code here.
   (void)ms_since_last_tick;
+  // 遍历映射关系，剔除过期关系
+
+  // 遍历未发送报文段
 }
