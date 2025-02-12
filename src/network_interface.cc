@@ -77,7 +77,8 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
     {
       // 解析，并记住映射关系，如果是ARP请求还需要给予回复。
       ARPMessage arpm {};
-      if( parse( arpm, frame.payload ) ) {
+      // 有可能是广播地址，必须要求目标地址是该网络接口的地址
+      if( parse( arpm, frame.payload) && arpm.target_ip_address == ip_address_.ipv4_numeric() ) {
         if( arpm.opcode == ARPMessage::OPCODE_REQUEST ) {
           EthernetHeader h{ arpm.sender_ethernet_address , ethernet_address_, EthernetHeader::TYPE_ARP};
           ARPMessage reply{
@@ -85,7 +86,7 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
             .sender_ethernet_address = ethernet_address_,
             .sender_ip_address = ip_address_.ipv4_numeric(),
             .target_ethernet_address = arpm.sender_ethernet_address,
-            .target_ip_address = arpm.target_ip_address};
+            .target_ip_address = arpm.sender_ip_address};
           transmit( {h, serialize(reply)} );
         }
         // 映射关系重新计时或者新元素
