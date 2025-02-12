@@ -20,7 +20,10 @@ void Router::add_route( const uint32_t route_prefix,
        << static_cast<int>( prefix_length ) << " => " << ( next_hop.has_value() ? next_hop->ip() : "(direct)" )
        << " on interface " << interface_num << "\n";
 
-  // Your code here.
+  routing_table_.emplace_back( move( route_prefix ), 
+                               move( prefix_length ),
+                               move( next_hop ),
+                               move( interface_num ) );
 }
 
 // Go through all the interfaces, and route every incoming datagram to its proper outgoing interface.
