@@ -44,4 +44,7 @@ private:
   };
   // routing table
   std::vector< route_ > routing_table_ {};
+
+  // longest_prefix_match: return interface's index 
+  std::pair< std::optional<size_t>, std::optional<Address>>  longest_prefix_match(const uint32_t &dst) const;
 };
