@@ -36,15 +36,16 @@ private:
   // The router's collection of network interfaces
   std::vector<std::shared_ptr<NetworkInterface>> _interfaces {};
 
-  struct route_ {
+  struct route_
+  {
     uint32_t route_prefix;
     uint8_t prefix_length;
     std::optional<Address> next_hop;
     size_t interface_num;
   };
   // routing table
-  std::vector< route_ > routing_table_ {};
+  std::vector<route_> routing_table_ {};
 
-  // longest_prefix_match: return interface's index 
-  std::pair< std::optional<size_t>, std::optional<Address>>  longest_prefix_match(const uint32_t &dst) const;
+  // longest_prefix_match: return interface's index
+  std::pair<std::optional<size_t>, std::optional<Address>> longest_prefix_match( const uint32_t& dst ) const;
 };
