@@ -37,6 +37,8 @@ void Router::route()
       if ( datagram.header.ttl != 0 && --datagram.header.ttl != 0 ) {
         // 如果interface_num 为空， 说明数据报没有匹配到网段,直接丢弃
         // 如果next_hop 为空，说明数据报到达目标网络，否则前往下一跳。
+        // 由于ttl发生变化，需要重新计算校验和。
+        datagram.header.compute_checksum();
         auto [interface_num, next_hop] = longest_prefix_match( datagram.header.dst );
         if ( next_hop && interface_num ) {
           interface( interface_num.value() )->send_datagram( datagram, next_hop.value() );
